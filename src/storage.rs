@@ -5,12 +5,17 @@ use uuid::Uuid;
 use crate::error::AppError;
 use crate::model::{Event, EventQuery};
 
+//Trait implementation that all other storage implementations use
+//Web api accepts any Struct/Object that implements this trait
+//can expand as needed
 pub trait EventStore: Send + Sync {
     fn add_event(&self, event: Event) -> Result<(), AppError>;
     fn query_events(&self, query: EventQuery) -> Result<Vec<Event>, AppError>;
     fn get_by_id(&self, id: Uuid) -> Result<Option<Event>, AppError>;
 }
 
+//Initial Struct and implementation for in-memory storage of events.  Also can continue to be used for testing
+//Guarded with a RwLock--Reads could be many, writes should be few
 pub struct InMemoryEventStore {
     events: RwLock<HashMap<Uuid, Event>>,
 }
@@ -64,9 +69,12 @@ impl EventStore for InMemoryEventStore {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use super::*;
-    use chrono::DateTime;
+    use chrono::{DateTime, Utc};
     use serde_json::json;
+    use tokio::task;
 
     fn sample_event(id: Option<Uuid>, event_type: &str, ts: &str) -> Event {
         Event {
@@ -176,5 +184,61 @@ mod tests {
         let event = sample_event(None, "test", "2025-01-01T12:00:00Z");
         let result = store.add_event(event);
         assert!(matches!(result, Err(AppError::InternalError(_))));
+    }
+
+    #[tokio::test]
+    async fn test_concurrent_reads() {
+        let store: Arc<dyn EventStore> = Arc::new(InMemoryEventStore::new());
+
+        store
+            .add_event(Event {
+                id: Uuid::new_v4(),
+                event_type: "test".into(),
+                timestamp: Utc::now(),
+                payload: serde_json::json!({"user_id": 1}),
+            })
+            .unwrap();
+
+        let store1 = Arc::clone(&store);
+        let store2 = Arc::clone(&store);
+
+        let t1 = task::spawn_blocking(move || {
+            let res = store1.query_events(EventQuery::default()).unwrap();
+            assert!(!res.is_empty());
+        });
+
+        let t2 = task::spawn_blocking(move || {
+            let res = store2.query_events(EventQuery::default()).unwrap();
+            assert!(!res.is_empty());
+        });
+
+        t1.await.unwrap();
+        t2.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_read_write_concurrency() {
+        let store: Arc<dyn EventStore> = Arc::new(InMemoryEventStore::new());
+
+        let store_reader = Arc::clone(&store);
+        let store_writer = Arc::clone(&store);
+
+        let reader = task::spawn_blocking(move || {
+            let _ = store_reader.query_events(EventQuery::default());
+        });
+
+        let writer = task::spawn_blocking(move || {
+            store_writer
+                .add_event(Event {
+                    id: Uuid::new_v4(),
+                    event_type: "write".into(),
+                    timestamp: Utc::now(),
+                    payload: serde_json::json!({"val": 42}),
+                })
+                .unwrap();
+        });
+
+        reader.await.unwrap();
+        writer.await.unwrap();
     }
 }
