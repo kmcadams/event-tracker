@@ -2,5 +2,12 @@
 name = "event-tracker"
 version = "0.1.0"
 edition = "2021"
+authors = ["Kyle McAdams <kyleamcadams@gmail.com>"]
 
 [dependencies]
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140"
+tokio = { version = "1.32.0", features = ["full"] }
+actix-web = "4.4.0"
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.4.1", features = ["v4", "Serde"] }
