@@ -26,6 +26,7 @@ pub struct NewEvent {
 }
 
 impl NewEvent {
+    #[must_use]
     pub fn into_event(self) -> Event {
         Event {
             id: Uuid::new_v4(),

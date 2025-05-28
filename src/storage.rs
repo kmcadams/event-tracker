@@ -1,4 +1,4 @@
-use log::{debug, info, warn};
+use log::{debug, info};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::RwLock;
@@ -18,12 +18,14 @@ pub trait EventStore: Send + Sync {
 
 //Initial Struct and implementation for in-memory storage of events.  Also can continue to be used for testing
 //Guarded with a RwLock--Reads could be many, writes should be few
+#[derive(Default)]
 pub struct InMemoryEventStore {
     events: RwLock<HashMap<Uuid, Event>>,
     count: AtomicUsize,
 }
 
 impl InMemoryEventStore {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             events: RwLock::new(HashMap::new()),

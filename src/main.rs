@@ -32,7 +32,7 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new()
             .wrap(Governor::new(&governor_conf))
-            .app_data(web::Data::from(store_data.clone()))
+            .app_data(store_data.clone())
             .service(post_event)
             .service(get_events)
             .service(get_event_by_id)

@@ -46,14 +46,11 @@ async fn get_event_by_id(
 ) -> Result<impl Responder, AppError> {
     debug!("Received id: {:#?}", path);
     let id = path.into_inner();
-    match store.get_by_id(id)? {
-        Some(event) => {
-            info!("Found event: {:#?}", event);
-            Ok(web::Json(event))
-        }
-        None => {
-            warn!("Event {} not found", id);
-            Err(AppError::NotFound(format!("Event {} not found", id)))
-        }
+    if let Some(event) = store.get_by_id(id)? {
+        info!("Found event: {:#?}", event);
+        Ok(web::Json(event))
+    } else {
+        warn!("Event {} not found", id);
+        Err(AppError::NotFound(format!("Event {id} not found")))
     }
 }
