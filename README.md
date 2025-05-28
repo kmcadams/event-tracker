@@ -9,6 +9,7 @@ A minimal, thread-safe event tracking service.  Supports event submission and qu
     - **thiserror** for unified error handling
     - **RwLock** for thread safety
     - **Serde** for Type serial and deserialization
+    - **Actix_governor** for rate limiting
 - **Docker** for deployment
 
 ## Project Structure
@@ -23,6 +24,7 @@ src/
 tests/
  - api_get_requests.rs -> integration tests for GET requests
  - api_post_requests.rs -> integration tests for POST requests
+ - rate_limiting.rs -> simple test of the rate limiting middleware
  ```
 
 ## Data Storage
@@ -47,6 +49,7 @@ Webserver exposes 3 services at one endpoint:
 - Errors are centralized via `thiserror` for consistency across API and internal logic.
 - UUIDs allow efficient querying and decouple internal identity from payload contents.
 - Integration tests validate API behavior and data filtering logic across edge cases.
+- For rate limiting, during development, `actix_governor` was chosen due to its simplicity and support for in-memory usage. For production, a more scalable approach would be considered for distributed rate limiting and persistence, such as `actix_limitation` with a Redis backend.
 
 
 ## Running the application

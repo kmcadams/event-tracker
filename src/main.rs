@@ -1,5 +1,7 @@
+use log::{error, info};
 use std::sync::Arc;
 
+use actix_governor::{Governor, GovernorConfigBuilder};
 use actix_web::{web, App, HttpServer};
 
 use event_tracker::api::{get_event_by_id, get_events, post_event};
@@ -12,8 +14,20 @@ async fn main() -> std::io::Result<()> {
     let store_data: web::Data<Arc<dyn EventStore>> = web::Data::new(store.clone());
 
     println!("Listening on http://{}", host);
+    info!("Listening on http://{}", host);
+
+    let governor_conf = GovernorConfigBuilder::default()
+        .seconds_per_request(5)
+        .burst_size(10)
+        .finish()
+        .unwrap_or_else(|| {
+            error!("Failed to create governor config");
+            std::process::exit(1)
+        });
+
     HttpServer::new(move || {
         App::new()
+            .wrap(Governor::new(&governor_conf))
             .app_data(web::Data::from(store_data.clone()))
             .service(post_event)
             .service(get_events)
