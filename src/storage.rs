@@ -1,5 +1,6 @@
-use log::debug;
+use log::{debug, info, warn};
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::RwLock;
 use uuid::Uuid;
 
@@ -19,13 +20,19 @@ pub trait EventStore: Send + Sync {
 //Guarded with a RwLock--Reads could be many, writes should be few
 pub struct InMemoryEventStore {
     events: RwLock<HashMap<Uuid, Event>>,
+    count: AtomicUsize,
 }
 
 impl InMemoryEventStore {
     pub fn new() -> Self {
         Self {
             events: RwLock::new(HashMap::new()),
+            count: AtomicUsize::new(0),
         }
+    }
+
+    pub fn metrics(&self) -> usize {
+        self.count.load(Ordering::Relaxed)
     }
 }
 
@@ -36,7 +43,17 @@ impl EventStore for InMemoryEventStore {
             .write()
             .map_err(|e| AppError::InternalError(e.to_string()))?;
         debug!("Inserting event with ID: {}", event.id);
+
         events.insert(event.id, event);
+        self.count.fetch_add(1, Ordering::Relaxed);
+        let current_count = events.len();
+        let estimated_event_size = std::mem::size_of::<Event>();
+        let estimated_total_bytes = current_count * estimated_event_size;
+
+        info!(
+            "Current event count: {}, Estimated memory usage: {} bytes",
+            current_count, estimated_total_bytes
+        );
         Ok(())
     }
 
@@ -106,6 +123,7 @@ mod tests {
 
         let retrieved = store.get_by_id(id).unwrap();
         assert_eq!(retrieved, Some(event));
+        assert_eq!(store.metrics(), 1);
     }
 
     #[test]
@@ -126,6 +144,7 @@ mod tests {
 
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].event_type, "login");
+        assert_eq!(store.metrics(), 2);
     }
 
     #[test]
@@ -156,6 +175,7 @@ mod tests {
 
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].timestamp, e2.timestamp);
+        assert_eq!(store.metrics(), 3);
     }
 
     #[test]
@@ -185,6 +205,7 @@ mod tests {
 
         let store = InMemoryEventStore {
             events: RwLock::new(HashMap::new()),
+            count: AtomicUsize::new(0),
         };
 
         let _ = catch_unwind(AssertUnwindSafe(|| {

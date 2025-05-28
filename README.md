@@ -62,13 +62,7 @@ Once running, use `curl` in a terminal to execute requests:
 ```Bash
 curl -X POST http://127.0.0.1:8080/events \
   -H "Content-Type: application/json" \
-  -d '{
-    "event_type": "login",
-    "timestamp": "2025-01-01T12:00:00Z",
-    "payload": {
-      "user_id": 1
-    }
-  }'
+  -d "{\"event_type\": \"login\", \"timestamp\": \"2025-01-01T12:00:00Z\", \"payload\": {\"user_id\": 1}}"
 ```
 Can query:
 ```Bash
@@ -103,3 +97,77 @@ Run all unit and integration tests with:
 ```bash
 cargo test
 ```
+
+## Metrics (Stretch Goal)
+
+To satisfy the stretch goal of adding basic observability, the application logs the following runtime metrics:
+
+    Number of events received: incremented on each successful event insertion.
+
+    Estimated in-memory usage: calculated based on the number of stored Event objects and the size of each.
+
+These metrics are logged using the log and log4rs crates, allowing you to monitor resource usage in real time without additional infrastructure.
+
+Design Tradeoffs:
+
+    Why logs instead of a metrics endpoint or database?
+
+        Simplicity: The goal was to provide lightweight observability without introducing persistent storage or external services.
+
+        Portability: Logging works in local, test, and containerized environments without needing Prometheus, StatsD, or Redis.
+
+        Visibility: Metrics are still visible and useful during development and testing.
+
+    Limitations
+
+        No time-series aggregation or historical data.
+
+        No central monitoring or dashboarding out-of-the-box.
+
+        Limited to Linux systems due to reliance on /proc.
+
+Future Enhancements
+
+    Expose metrics via /metrics endpoint in Prometheus format using actix-web-prom.
+
+    Store metrics in a real observability platform such as:
+
+        Prometheus (via push or pull model)
+
+        StatsD or InfluxDB
+
+        Integrate with Grafana for dashboards
+
+    Track additional metrics, such as:
+
+        Average request duration
+
+        Error rates per endpoint
+
+        Request throughput
+
+## TODO and Future Considerations
+
+**Typed Event Definitions**
+
+If event_type values are finite and known ahead of time, converting them to an enum would allow for better validation, type safety, and compile-time guarantees. This would also enable more structured querying and prevent invalid or unexpected event types from being recorded.
+
+**Interpreting Payloads**
+
+Currently, the payload field accepts arbitrary JSON, which is useful for flexibility. However, if the application grows to include actionable events—such as scheduled tasks, triggers, or state transitions—it would be beneficial to introduce a typed model for payloads, perhaps using tagged enums or schema validation (e.g., with serde_json::Value + custom validation logic).
+
+**Persistent Storage**
+
+The in-memory HashMap is suitable for development and testing but lacks durability. Introducing persistent storage using a relational database (such as PostgreSQL) would provide long-term reliability and query capabilities. Given the semi-structured nature of payload, a jsonb column in PostgreSQL would allow storing rich, queryable documents without giving up relational features.
+
+A document database, like MongoDB, could also be used.  But becomes less useful if types become more rigid.
+
+For better performance and analytics, a hybrid model could be considered—storing core fields (like event_type, timestamp, and user_id) in native columns while keeping the rest of the payload in a jsonb field. This allows for indexed queries on high-value fields without losing schema flexibility.
+
+**Metrics and Observability**
+
+Current metrics are in-memory and simple. Future iterations should consider exposing Prometheus-compatible metrics or integrating with tools like OpenTelemetry for structured observability across services.
+
+**Rate Limiting Enhancements**
+
+Present rate limiting is done in memory via middleware, which resets on service restart. For production, consider using a distributed store like Redis with actix-limitation to support consistent enforcement across instances.
