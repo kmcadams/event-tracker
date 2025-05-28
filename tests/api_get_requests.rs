@@ -1,7 +1,7 @@
 use actix_web::http::StatusCode;
 use actix_web::{test, web, App};
 use chrono::{DateTime, TimeZone, Utc};
-use event_tracker::api::get_events;
+use event_tracker::api::{get_event_by_id, get_events};
 use event_tracker::model::Event;
 use event_tracker::storage::{EventStore, InMemoryEventStore};
 use serde_json::json;
@@ -249,4 +249,35 @@ async fn test_get_events_invalid_query_parameter() {
     let returned: Vec<Event> = serde_json::from_slice(&body_bytes).unwrap();
 
     assert_eq!(returned.len(), 4);
+}
+
+#[actix_rt::test]
+async fn test_get_event_by_id_success() {
+    let store: Arc<dyn EventStore> = Arc::new(InMemoryEventStore::new());
+    let event = Event {
+        id: Uuid::new_v4(),
+        event_type: "test".into(),
+        timestamp: Utc::now(),
+        payload: serde_json::json!({ "val": 123 }),
+    };
+
+    store.add_event(event.clone()).unwrap();
+
+    let app = test::init_service(
+        App::new()
+            .app_data(web::Data::new(store))
+            .service(get_event_by_id),
+    )
+    .await;
+
+    let uri = format!("/events/{}", event.id);
+    let req = test::TestRequest::get().uri(&uri).to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let body_bytes = test::read_body(resp).await;
+    let returned_event: Event = serde_json::from_slice(&body_bytes).unwrap();
+
+    assert_eq!(returned_event.id, event.id);
+    assert_eq!(returned_event.event_type, event.event_type);
 }

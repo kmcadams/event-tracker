@@ -31,3 +31,15 @@ async fn get_events(
     let results = store.query_events(query.into_inner())?;
     Ok(web::Json(results))
 }
+
+#[get("/events/{id}")]
+async fn get_event_by_id(
+    store: web::Data<Arc<dyn EventStore>>,
+    path: web::Path<Uuid>,
+) -> Result<impl Responder, AppError> {
+    let id = path.into_inner();
+    match store.get_by_id(id)? {
+        Some(event) => Ok(web::Json(event)),
+        None => Err(AppError::NotFound(format!("Event {} not found", id))),
+    }
+}
