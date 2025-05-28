@@ -1,6 +1,6 @@
 [package]
 name = "event-tracker"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2021"
 authors = ["Kyle McAdams <kyleamcadams@gmail.com>"]
 
@@ -17,3 +17,9 @@ thiserror = "2.0.12"
 [dev-dependencies]
 actix-rt = "2.10.0"
 actix-service = "2.0.3"
+
+[profile.release]
+lto = true
+opt-level = "z"
+strip = true
+panic = "abort"

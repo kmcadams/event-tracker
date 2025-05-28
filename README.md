@@ -77,6 +77,22 @@ Use event ID returned from POST:
 curl -X GET http://127.0.0.1:8080/events/0d67f74f-1090-4425-89f1-9196be25d24b
 ```
 
+### Docker
+
+From the project root directory, build the docker image:
+```bash
+docker build -t event-tracker:latest .
+```
+
+Once built, run it with the following command:
+```bash
+docker run -e BIND_ADDRESS=0.0.0.0:8080 -p 8080:8080 event-tracker
+```
+
+The App requires an environment variable so it can correctly bind to any interface when run inside a container. 
+
+Reaching the webserver uses the same curl commands listed when running locally.
+
 ## Testing
 
 Run all unit and integration tests with:

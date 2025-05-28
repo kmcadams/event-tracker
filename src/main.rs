@@ -7,11 +7,11 @@ use event_tracker::storage::{EventStore, InMemoryEventStore};
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    let host = std::env::var("BIND_ADDRESS").unwrap_or_else(|_| "127.0.0.1:8080".to_string());
     let store: Arc<dyn EventStore> = Arc::new(InMemoryEventStore::new());
     let store_data: web::Data<Arc<dyn EventStore>> = web::Data::new(store.clone());
 
-    println!("Starting server at http://127.0.0.1:8080");
-
+    println!("Listening on http://{}", host);
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::from(store_data.clone()))
@@ -19,7 +19,7 @@ async fn main() -> std::io::Result<()> {
             .service(get_events)
             .service(get_event_by_id)
     })
-    .bind(("127.0.0.1", 8080))?
+    .bind(host)?
     .run()
     .await
 }
