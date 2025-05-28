@@ -1,3 +1,4 @@
+use log::debug;
 use std::collections::HashMap;
 use std::sync::RwLock;
 use uuid::Uuid;
@@ -34,6 +35,7 @@ impl EventStore for InMemoryEventStore {
             .events
             .write()
             .map_err(|e| AppError::InternalError(e.to_string()))?;
+        debug!("Inserting event with ID: {}", event.id);
         events.insert(event.id, event);
         Ok(())
     }
@@ -43,7 +45,7 @@ impl EventStore for InMemoryEventStore {
             .events
             .read()
             .map_err(|e| AppError::InternalError(e.to_string()))?;
-        let result = events
+        let result: Vec<Event> = events
             .values()
             .filter(|event| {
                 query
@@ -55,10 +57,19 @@ impl EventStore for InMemoryEventStore {
             })
             .cloned()
             .collect();
+
+        debug!(
+            "Query: type={:?}, start={:?}, end={:?} -> {} result(s)",
+            query.event_type,
+            query.start,
+            query.end,
+            result.len()
+        );
         Ok(result)
     }
 
     fn get_by_id(&self, id: Uuid) -> Result<Option<Event>, AppError> {
+        debug!("Retrieving event with ID: {}", id);
         let events = self
             .events
             .read()

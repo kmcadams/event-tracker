@@ -17,7 +17,8 @@ RUN groupadd -r -g 1000 docker_group && \
 USER docker_user
 WORKDIR /home/docker_user
 
-COPY --from=builder /app/target/release/event-tracker /usr/local/bin/event-tracker
+COPY --chown=docker_user:docker_group --chmod=500 --from=builder /app/target/release/event-tracker /usr/local/bin/event-tracker
+COPY --chown=docker_user:docker_group --chmod=600 log4rs.yml .
 
 EXPOSE 8080
 

@@ -1,4 +1,6 @@
 use actix_web::{get, post, web, Responder};
+use log::{debug, info, warn};
+
 use std::sync::Arc;
 
 use crate::error::AppError;
@@ -11,6 +13,7 @@ async fn post_event(
     store: web::Data<Arc<dyn EventStore>>,
     payload: web::Json<NewEvent>,
 ) -> Result<impl Responder, AppError> {
+    debug!("Received event: {:#?}", payload);
     let new_event = Event {
         id: Uuid::new_v4(),
         event_type: payload.event_type.clone(),
@@ -20,6 +23,8 @@ async fn post_event(
 
     store.add_event(new_event.clone())?;
 
+    info!("Stored event: {:#?}", new_event);
+
     Ok(web::Json(new_event))
 }
 
@@ -28,7 +33,9 @@ async fn get_events(
     store: web::Data<Arc<dyn EventStore>>,
     query: web::Query<EventQuery>,
 ) -> Result<impl Responder, AppError> {
+    debug!("Received query: {:#?}", query);
     let results = store.query_events(query.into_inner())?;
+    info!("Query results: {:#?}", results);
     Ok(web::Json(results))
 }
 
@@ -37,9 +44,16 @@ async fn get_event_by_id(
     store: web::Data<Arc<dyn EventStore>>,
     path: web::Path<Uuid>,
 ) -> Result<impl Responder, AppError> {
+    debug!("Received id: {:#?}", path);
     let id = path.into_inner();
     match store.get_by_id(id)? {
-        Some(event) => Ok(web::Json(event)),
-        None => Err(AppError::NotFound(format!("Event {} not found", id))),
+        Some(event) => {
+            info!("Found event: {:#?}", event);
+            Ok(web::Json(event))
+        }
+        None => {
+            warn!("Event {} not found", id);
+            Err(AppError::NotFound(format!("Event {} not found", id)))
+        }
     }
 }

@@ -9,12 +9,15 @@ use event_tracker::storage::{EventStore, InMemoryEventStore};
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    log4rs::init_file("log4rs.yml", log4rs::config::Deserializers::default()).unwrap_or_else(|e| {
+        error!("Failed to initialize log4rs: {}", e);
+        std::process::exit(1)
+    });
+    info!("Starting server...");
+
     let host = std::env::var("BIND_ADDRESS").unwrap_or_else(|_| "127.0.0.1:8080".to_string());
     let store: Arc<dyn EventStore> = Arc::new(InMemoryEventStore::new());
     let store_data: web::Data<Arc<dyn EventStore>> = web::Data::new(store.clone());
-
-    println!("Listening on http://{}", host);
-    info!("Listening on http://{}", host);
 
     let governor_conf = GovernorConfigBuilder::default()
         .seconds_per_request(5)
@@ -22,9 +25,10 @@ async fn main() -> std::io::Result<()> {
         .finish()
         .unwrap_or_else(|| {
             error!("Failed to create governor config");
-            std::process::exit(1)
+            std::process::exit(2)
         });
 
+    info!("Listening on http://{}", host);
     HttpServer::new(move || {
         App::new()
             .wrap(Governor::new(&governor_conf))
